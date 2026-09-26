@@ -46,19 +46,17 @@
 			Link to GitHub repository: <a href="https://github.com/cal-cs184-student/hw1-jph-writeup">github.com/cal-cs184-student/hw1-jph-writeup</a>
 
 			<!--
-	We've already added one heading per task, to make your write-up as navigable when grading. Please fit your write-up within these sections!
-	-->
+		We've already added one heading per task, to make your write-up as navigable when grading. Please fit your write-up within these sections!
+		-->
 
 			<h2>Overview</h2>
-			<p>In this homework, I built a basic rasterization pipeline that turns SVG shapes into pixels on a screen. I started by rasterizing single-color triangles, using edge functions that are updated incrementally as the loop steps across the triangle's bounding box (instead of being recomputed from scratch at every pixel). I then added supersampling, storing multiple samples per pixel and averaging them into the framebuffer to reduce jagged edges. On top of that, I implemented the standard 2D transform matrices (translation, scaling, and rotation), used them to pose the robot in my_robot.svg, and added viewport translation and rotation controls to the GUI. Next, I used barycentric coordinates to interpolate values across a triangle, first for per-vertex colors and then for texture coordinates. Finally, I implemented texture sampling with nearest and bilinear pixel sampling, along with mipmap level sampling (L_ZERO, L_NEAREST, and L_LINEAR).</p>
-			<!-- TODO: The paragraph below was drafted from the conclusions in this write-up. Edit it to reflect what you personally found interesting. -->
-			<p>The most interesting takeaway for me was that aliasing shows up in several different forms, and each technique in this homework targets a different one. Supersampling is the only method that smooths triangle edges, but its cost in time and memory grows linearly with the sample rate. Bilinear pixel sampling removes the blocky look of magnified textures but does little when a texture is minified. Mipmapping handles minification by pre-averaging the texture, for about 33% extra memory. Choosing a sampling setup comes down to balancing these tradeoffs against what the scene needs.</p>
-
+			<p>In this homework, I built a basic rasterization pipeline that turns SVG shapes into pixels. I started by rasterizing single-color triangles, using edge functions that are updated incrementally as the loop steps across the triangle's bounding box instead of being recomputed from scratch at every pixel. I then added supersampling, storing multiple samples per pixel and averaging them into the framebuffer to reduce jagged edges. On top of that, I implemented the standard 2D transform matrices (translation, scaling, and rotation), used them to pose the robot in my_robot.svg, and added viewport translation and rotation controls to the GUI. Next, I used barycentric coordinates to interpolate values across a triangle, first for per-vertex colors and then for texture coordinates. Finally, I implemented texture sampling with nearest and bilinear pixel sampling, along with mipmap level sampling (L_ZERO, L_NEAREST, and L_LINEAR).</p>
+			<p>The most interesting takeaway for me was that aliasing shows up in many distinct forms, and each technique in this homework targets a different one. Supersampling is the only method that smooths triangle edges, but its cost in time and memory grows linearly with the sample rate. Bilinear pixel sampling removes the blocky look of magnified textures but does little when a texture is minified. Mipmapping handles minification by pre-averaging the texture, but at the cost of about 33% extra memory. Choosing a sampling setup comes down to balancing these tradeoffs against what the scene needs.</p>
 
 			<!-- ============================ TASK 1 ============================ -->
 			<h2>Task 1: Drawing Single-Color Triangles</h2>
 
-			<p>Basic triangle rasterization is accomplished through the following process:</p>
+			<p>Basic triangle rasterization (before supersampling was added) is accomplished through the following process:</p>
 			<ol>
 				<li>For each pixel (x,y coordinate) within an area, does it lie within the bounds of three vertices (our triangle)</li>
 				<li>If yes, we assign the sample_buffer array index of y * width + x (the location within our array associated with the given screen location) the provided Color RGB value.</li>
@@ -92,22 +90,23 @@
 			<p>We then run our edge functions once, at our initial pixel location (min x value + 0.5, min y value + 0.5), where the min/max x/y values define the triangle's bounding box (floored/ceiled and clamped to the screen).</p>
 
 			<p>Then, for our actual checks, we step through each pixel within the bounding box, row by row, calling fill_pixel on each location where all three edge values are ≥ 0.</p>
+			<p>Because this visits exactly the same samples as a check of every sample in the bounding box, and does less work per sample, it is no worse than the bounding-box approach.</p>
 
-			<p>What this does, is for each inner loop (checking each x value within a y row), we do our edge check and then advance each of the three edge values by its A value (our left to right rate of change). After each y row, we similarly advance the row's starting edge values by their B values (our y rate of change). This allows us to avoid computing a full edge check on each point from scratch, and instead simply increment our values through direct addition at each step. As we can see from the following tests, this provided approximately 3.7x speedup compared to an unoptimized box check (~72% reduction in time). Values show average rasterization loop timing over 100 sequential attempts for each of the 5 triangles in the image:</p>
+			<p>What this does, is for each inner loop (checking each x value within a y row), we do our edge check and then advance each of the three edge values by its A value (our left to right rate of change). After each y row, we similarly advance the row's starting edge values by their B values (our y rate of change). This allows us to avoid computing a full edge check on each point from scratch, and instead simply increment our values through direct addition at each step. As we can see from the following tests, this provided approximately 3.6x speedup compared to an unoptimized box check (~72% reduction in time). Each triangle's rasterization loop was timed over 100 sequential attempts. Each line shows the running average time per attempt across all triangles drawn so far (the line for triangles=5 covers all 5 triangles in the image), so the final line gives the overall comparison:</p>
 
 			<p>Full Edge Check per Location in Bounding Box:</p>
-<pre>[raster] triangle 1 avg_per_run=94562.0 ns
-[raster] triangle 2 avg_per_run=71838.5 ns
-[raster] triangle 3 avg_per_run=55848.7 ns
-[raster] triangle 4 avg_per_run=64781.5 ns
-[raster] triangle 5 avg_per_run=53120.6 ns</pre>
+<pre>[raster] triangles=1  avg_per_run=94562.0 ns
+[raster] triangles=2  avg_per_run=71838.5 ns
+[raster] triangles=3  avg_per_run=55848.7 ns
+[raster] triangles=4  avg_per_run=64781.5 ns
+[raster] triangles=5  avg_per_run=53120.6 ns</pre>
 
 			<p>Single Edge Check with Incremental Addition in Bounding Box:</p>
-<pre>[raster] triangle 1 avg_per_run=24717.0 ns
-[raster] triangle 2 avg_per_run=18791.0 ns
-[raster] triangle 3 avg_per_run=16069.0 ns
-[raster] triangle 4 avg_per_run=18138.2 ns
-[raster] triangle 5 avg_per_run=14829.6 ns</pre>
+<pre>[raster] triangles=1  avg_per_run=24717.0 ns
+[raster] triangles=2  avg_per_run=18791.0 ns
+[raster] triangles=3  avg_per_run=16069.0 ns
+[raster] triangles=4  avg_per_run=18138.2 ns
+[raster] triangles=5  avg_per_run=14829.6 ns</pre>
 
 			<!-- ============================ TASK 2 ============================ -->
 			<h2>Task 2: Antialiasing by Supersampling</h2>
@@ -129,7 +128,7 @@
 			<ol>
 				<li>We retain the same x,y nested loops over every output pixel, since the resulting framebuffer target count will always be equal to width * height.</li>
 				<li>At each pixel, we default the outgoing value to black, as this gives us a zeroed initial RGB value, which we will increment based on our collected super samples.</li>
-				<li>At each outgoing pixel location, we define the resulting RGB value as the sum of the super samples stored for that pixel. This gives us the total resulting value of all super sampled sub-pixel RGB values (plus the skipped sub-pixel locations, which have a default value of White).</li>
+				<li>At each outgoing pixel location, we define the resulting RGB value as the sum of the super samples stored for that pixel. This gives us the total resulting value of all super sampled sub-pixel RGB values (plus the sub-pixel locations the triangle did not cover, which keep their existing value: white after the buffer is cleared, unless another shape was drawn there).</li>
 				<li>We finally adjust our final RGB value to the average value across the sample_rate total samples, giving us a more accurate approximation of our pixels intended value.</li>
 				<li>We keep the final step the same, where the averaged r, g, b values are scaled to the 0–255 range and written to the framebuffer.</li>
 			</ol>
@@ -156,7 +155,7 @@
 			</ul>
 			<p>We increment our edge values in these inner steps by a scaled Ai/Bi value using the inv partial step value calculated earlier to ensure we only increment by the sub-step amount. For any location found to be inside, we call our fill_supersample function with the appropriate X/Y coordinates and sub pixel location.</p>
 
-			<p>The overall result of this supersampling method is that we can now provide partial pixel colorings for pixel locations where the center point (px + 0.5, py + 0.5) is not actually contained within the triangle directly, but some of it’s super samples are. This enables us to draw ‘transitional’ pixel locations with partial color values to minimize the jagged edges otherwise seen due to the grid format of our pixels, as demonstrated below (1x, 4x, 16x SS)</p>
+			<p>The overall result of this supersampling method is that we can now provide partial pixel colorings for pixel locations where the center point (px + 0.5, py + 0.5) is not actually contained within the triangle directly, but some of its super samples are. This enables us to draw ‘transitional’ pixel locations with partial color values to minimize the jagged edges otherwise seen due to the grid format of our pixels, as demonstrated below (1x, 4x, 16x SS). Averaging the samples in each pixel approximates how much of that pixel the triangle actually covers, which is why supersampling reduces aliasing along edges and in thin features such as the skinny triangle shown.</p>
 			<div style="display: flex; flex-direction: column; align-items: center;">
 				<table style="width: 100%; text-align: center; border-collapse: collapse;">
 					<tr>
@@ -264,21 +263,21 @@
 					<tr>
 						<td style="text-align: center;">
 							<img src="assets/task5_nearest_row1.png" width="400px" />
-							<figcaption>Nearest</figcaption>
+							<figcaption>Nearest, 1x SS</figcaption>
 						</td>
 						<td style="text-align: center;">
 							<img src="assets/task5_bilinear_row1.png" width="400px" />
-							<figcaption>Bilinear</figcaption>
+							<figcaption>Bilinear, 1x SS</figcaption>
 						</td>
 					</tr>
 					<tr>
 						<td style="text-align: center;">
 							<img src="assets/task5_nearest_row2.png" width="400px" />
-							<figcaption>Nearest</figcaption>
+							<figcaption>Nearest, 16x SS</figcaption>
 						</td>
 						<td style="text-align: center;">
 							<img src="assets/task5_bilinear_row2.png" width="400px" />
-							<figcaption>Bilinear</figcaption>
+							<figcaption>Bilinear, 16x SS</figcaption>
 						</td>
 					</tr>
 				</table>
@@ -334,7 +333,7 @@
 
 			<p>
 				<b>Level Sampling (Zero/Nearest/Linear):</b><br>
-				Speed: No cost for L_ZERO, L_NEAREST adds a set amount of additional computation per sample (the barycentric/uv/vector length/log computations), and the linear does a blend of two levels giving 2x the texel reads of L_NEAREST<br>
+				Speed: L_ZERO skips the level calculation (although our rasterizer still computes the uv differentials for every sample), L_NEAREST adds a set amount of additional computation per sample (the vector length/log computations), and the linear does a blend of two levels giving 2x the texel reads of L_NEAREST<br>
 				Memory: Since we need to store the ½ size texture levels, we end up requiring an additional ~33% storage (¼ + 1/16 + ...)<br>
 				Antialiasing Power: This sampling is very effective for minification scenarios. Because we can pre-average our original high-texel count into a smaller set of averaged texels, when the texture is minified we can sample based off of those, preventing us from losing out on the texel data from additional texels within our single pixel location.
 			</p>
@@ -394,12 +393,11 @@
 				</table>
 			</div>
 
-			<p>When we compare the effect of using both L_ZERO and P_NEAREST, but with 16x SS we can see how effective it can be for the same task (unfortunately at the cost of nearly 2x the active memory):</p>
+			<p>When we compare the effect of using both L_ZERO and P_NEAREST, but with 16x SS we can see how effective it can be for the same task (unfortunately at the cost of a sample buffer 16x larger than at 1x SS, along with roughly 16x the sampling work):</p>
 			<figure>
 				<img src="assets/task6_lzero_pnearest_16x.png" width="400px" />
 				<figcaption>L_ZERO / P_NEAREST, 16x SS</figcaption>
 			</figure>
-
 		</div>
 	</body>
 </html>
