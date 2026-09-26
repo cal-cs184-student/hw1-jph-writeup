@@ -1,20 +1,29 @@
 <html>
 <head>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script type="text/x-mathjax-config">
+		MathJax.Hub.Config({
+			"HTML-CSS": { linebreaks: { automatic: true } },
+			"CommonHTML": { linebreaks: { automatic: true } },
+			"SVG": { linebreaks: { automatic: true } }
+		});
+	</script>
 	<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=default'></script>
 	<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=IBM+Plex+Sans:wght@500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
 	<style>
-        :root {
-            --ink: #1d2330;
-            --muted: #5a6272;
-            --rule: #d9dde4;
-            --panel: ##DFE3EB;
-            --link: #1f4e8c;
-            --red: #e0262b;
-            --green: #1fbf3a;
-            --blue: #2340d6;
-            --measure: 44rem;
-        }
+		:root {
+			--paper: #e6ebe1; /* sage page background */
+			--panel: #d5ddce; /* deeper sage for the timing logs */
+			--rule: #bcc7b4; /* dividers and image borders */
+			--ink: #23272b; /* body text */
+			--muted: #4f564d; /* captions and header details */
+			--link: #6f2853; /* muted plum links */
+			--link-hover: #521b3d;
+			--red: #e0262b;
+			--green: #1fbf3a;
+			--blue: #2340d6;
+			--measure: 44rem;
+		}
 
 		* {
 			box-sizing: border-box;
@@ -30,14 +39,14 @@
 			}
 		}
 
-        body {
-            margin: 0;
-            background: ##EBE7DF;
-            color: var(--ink);
-            font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
-            font-size: 18px;
-            line-height: 1.65;
-        }
+		body {
+			margin: 0;
+			background: var(--paper);
+			color: var(--ink);
+			font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+			font-size: 18px;
+			line-height: 1.65;
+		}
 
 		.container {
 			max-width: 1100px;
@@ -52,7 +61,6 @@
 			.container > h2,
 			.container > h4,
 			.container > pre,
-			.container > .MathJax_Display,
 			.container > figure,
 			.masthead,
 			.toc {
@@ -151,6 +159,10 @@
 			text-underline-offset: 2px;
 		}
 
+			a:hover {
+				color: var(--link-hover);
+			}
+
 			a:focus-visible {
 				outline: 2px solid var(--link);
 				outline-offset: 2px;
@@ -168,8 +180,7 @@
 		}
 
 		.MathJax_Display {
-			overflow-x: auto;
-			overflow-y: hidden;
+			overflow: visible;
 		}
 
 		/* Figures and image comparisons */
@@ -233,6 +244,11 @@
 
 			.compare td {
 				margin-bottom: 20px;
+			}
+
+			.MathJax_Display {
+				overflow-x: auto;
+				overflow-y: hidden;
 			}
 		}
 	</style>
